@@ -11,6 +11,10 @@ from PIL import Image, ImageDraw
 import json
 from tqdm import tqdm
 
+from torchvision.transforms import functional as TF
+import torch
+import torchvision.transforms as T
+
 # Keep parameters bundled
 CONFIG = 'oxford-town'
 
@@ -138,10 +142,29 @@ def rasterize_roads(roads, bounds, size, thickness_fn):
     )
     return mask
 
+# Addition to create noise within the training set
+def apply_distortions(np_img):
+    """Applies Gaussian blur and noise to a NumPy uint8 image."""
+    # Convert to torch tensor (C, H, W) and normalize to [0, 1]
+    tensor_img = TF.to_tensor(Image.fromarray(np_img))
+
+    # Apply Gaussian blur (kernel size and sigma adjustable)
+    blur = T.GaussianBlur(kernel_size=5, sigma=(1.0, 2.0))
+    tensor_img = blur(tensor_img)
+
+    # Add Gaussian noise
+    noise_std = 0.05  # adjust as needed
+    noise = torch.randn_like(tensor_img) * noise_std
+    tensor_img = torch.clamp(tensor_img + noise, 0, 1)
+
+    # Convert back to uint8
+    distorted = (tensor_img.squeeze(0).numpy() * 255).astype(np.uint8)
+    return distorted
 
 def generate_samples(gdf_edges, gdf_nodes, n_samples=500, out_dir="dataset", image_size=(256, 256)):
     os.makedirs(out_dir, exist_ok=True)
 
+    n_samples = min(config['n_samples'], len(gdf_nodes))
     selected_nodes = pick_random_intersections(gdf_nodes, n=n_samples)
 
     for i, (_, node) in enumerate(tqdm(selected_nodes.iterrows(), total=n_samples)):
@@ -152,7 +175,8 @@ def generate_samples(gdf_edges, gdf_nodes, n_samples=500, out_dir="dataset", ima
         if clip.empty:
             continue
 
-        image_array = rasterize_roads(clip, bounds, image_size, get_default_thickness)
+        raw_image_array = rasterize_roads(clip, bounds, image_size, get_default_thickness)
+        image_array = apply_distortions(raw_image_array)
         target_array = rasterize_roads(clip, bounds, image_size, lambda row: 0.0)
 
         # Save image
