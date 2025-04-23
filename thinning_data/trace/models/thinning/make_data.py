@@ -142,9 +142,11 @@ def rasterize_roads(roads, bounds, size, thickness_fn):
     )
     return mask
 
-# Addition to create noise within the training set
 def apply_distortions(np_img):
-    """Applies Gaussian blur and noise to a NumPy uint8 image."""
+    """Applies Gaussian blur and noise to a NumPy uint8 image.
+       Addition to smooth images & reduce high-frequency noise 
+       (Helps with handling real-world imperfections)
+    """
     # Convert to torch tensor (C, H, W) and normalize to [0, 1]
     tensor_img = TF.to_tensor(Image.fromarray(np_img))
 
