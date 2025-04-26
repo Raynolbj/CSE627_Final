@@ -143,30 +143,40 @@ def rasterize_roads(roads, bounds, size, thickness_fn):
     return mask
 
 def apply_distortions(np_img):
-    """Applies Gaussian blur and noise to a NumPy uint8 image.
-       Addition to smooth images & reduce high-frequency noise 
-       (Helps with handling real-world imperfections)
-    """
-    # Convert to torch tensor (C, H, W) and normalize to [0, 1]
-    tensor_img = TF.to_tensor(Image.fromarray(np_img))
+    from torchvision.transforms import functional as TF
+    import torch
 
-    # Apply Gaussian blur (kernel size and sigma adjustable)
-    blur = T.GaussianBlur(kernel_size=5, sigma=(1.0, 2.0))
+    tensor_img = TF.to_tensor(Image.fromarray(np_img))  # (1, H, W)
+
+    # Strong Gaussian blur
+    blur = T.GaussianBlur(kernel_size=7, sigma=(2.5, 4.0))
     tensor_img = blur(tensor_img)
 
-    # Add Gaussian noise
-    noise_std = 0.05  # adjust as needed
+    # Add heavier Gaussian noise
+    noise_std = 0.15
     noise = torch.randn_like(tensor_img) * noise_std
     tensor_img = torch.clamp(tensor_img + noise, 0, 1)
 
-    # Convert back to uint8
+    # Salt-and-pepper (2%)
+    p = 0.02
+    mask = torch.rand_like(tensor_img)
+    tensor_img[mask < p / 2] = 0
+    tensor_img[mask > 1 - p / 2] = 1
+
     distorted = (tensor_img.squeeze(0).numpy() * 255).astype(np.uint8)
     return distorted
 
-def generate_samples(gdf_edges, gdf_nodes, n_samples=500, out_dir="dataset", image_size=(256, 256)):
-    os.makedirs(out_dir, exist_ok=True)
 
-    n_samples = min(config['n_samples'], len(gdf_nodes))
+def generate_samples(gdf_edges, gdf_nodes, n_samples=500, out_dir="dataset", image_size=(256, 256)):
+    # Create separate directories for inputs, targets, and geojsons
+    input_dir = os.path.join(out_dir, "inputs")
+    target_dir = os.path.join(out_dir, "targets")
+    geojson_dir = os.path.join(out_dir, "geojson")
+    os.makedirs(input_dir, exist_ok=True)
+    os.makedirs(target_dir, exist_ok=True)
+    os.makedirs(geojson_dir, exist_ok=True)
+
+    n_samples = min(n_samples, len(gdf_nodes))
     selected_nodes = pick_random_intersections(gdf_nodes, n=n_samples)
 
     for i, (_, node) in enumerate(tqdm(selected_nodes.iterrows(), total=n_samples)):
@@ -174,32 +184,35 @@ def generate_samples(gdf_edges, gdf_nodes, n_samples=500, out_dir="dataset", ima
         buffer_m = 128  # meters around the point
         bounds = (pt.x - buffer_m, pt.y - buffer_m, pt.x + buffer_m, pt.y + buffer_m)
         clip = gdf_edges.cx[bounds[0]:bounds[2], bounds[1]:bounds[3]].copy()
+        
         if clip.empty:
             continue
 
-        raw_image_array = rasterize_roads(clip, bounds, image_size, get_default_thickness)
-        image_array = apply_distortions(raw_image_array)
-        target_array = rasterize_roads(clip, bounds, image_size, lambda row: 0.0)
+        # Rasterize for input and target
+        raw_image_array = rasterize_roads(clip, bounds, image_size, get_default_thickness)   # thick roads
+        image_array = apply_distortions(raw_image_array)                                     # add noise
+        target_array = rasterize_roads(clip, bounds, image_size, thickness_fn=lambda row: 0.0)  # thin skeleton
 
-        # Save image
-        image_path = os.path.join(out_dir, f"image_{i:05d}.png")
+        # Save input image (thick + noisy)
+        image_path = os.path.join(input_dir, f"image_{i:05d}.png")
         Image.fromarray(image_array).save(image_path)
 
-        # Save target (same as image for this example)
-        target_path = os.path.join(out_dir, f"target_{i:05d}.png")
+        # Save target mask (thin skeleton)
+        target_path = os.path.join(target_dir, f"target_{i:05d}.png")
         Image.fromarray(target_array).save(target_path)
 
         # Save geojson
-        target_geojson_path = os.path.join(out_dir, f"target_{i:05d}.geojson")
+        target_geojson_path = os.path.join(geojson_dir, f"target_{i:05d}.geojson")
         features = [{
             "type": "Feature",
             "geometry": mapping(geom),
             "properties": {"highway": row.get("highway", "unknown")}
         } for _, row in clip.iterrows() if isinstance((geom := row.geometry), LineString)]
-        
+
         geojson = {"type": "FeatureCollection", "features": features}
         with open(target_geojson_path, 'w') as f:
             json.dump(geojson, f)
+
 
 if __name__ == "__main__":
   config=CONFIGS[CONFIG]

@@ -7,3 +7,5 @@ geopandas
 rasterio
 shapely
 tqdm
+matplotlib
+scikit-image
