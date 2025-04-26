@@ -6,6 +6,25 @@ It covers **data generation**, **model training**, and **sample prediction visua
 
 ---
 
+## ⏩ Quickstart
+
+```bash
+# Clone the repository
+git clone https://github.com/Raynolbj/CSE627_Final.git
+cd <your-repo-folder>
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Generate dataset
+python thinning_data/trace/models/thinning/make_data.py
+
+# Train the model
+python train.py
+```
+
+---
+
 ## 🛠 Project Setup
 
 ### 1. Install Dependencies
@@ -100,3 +119,4 @@ python train.py
 ```
 
 (You may want to delete old `checkpoints/` and `predictions/` first if retraining.)
+
