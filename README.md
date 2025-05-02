@@ -19,10 +19,10 @@ CSE627_FINAL/
 │   └── node_metrics.py
 ├── predictions/                  # (Optional) saved outputs from test runs
 ├── results/                      # All evaluation outputs (images + CSVs)
-│   ├── baseline_YYYYMMDD_HHMMSS/      # From baseline config
-│   ├── alt_loss_YYYYMMDD_HHMMSS/      # From alt_loss config
-│   ├── low_lr_YYYYMMDD_HHMMSS/        # From low_lr config
-│   └── sample_YYYYMMDD_HHMMSS/        # From manual evaluation scripts
+│   ├── baseline/                     # From baseline config
+│   ├── alt_loss/                     # From alt_loss config
+│   ├── low_lr/                       # From low_lr config
+│   └── sample/                       # From manual evaluation scripts
 ├── scripts/                      # All training/evaluation scripts
 │   ├── dataset.py
 │   ├── train.py
