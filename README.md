@@ -8,21 +8,28 @@ This project implements a deep learning-based approach to skeletonize road netwo
 
 ```
 CSE627_FINAL/
-├── cache/                    # Cached OSM data
-├── checkpoints/              # Saved model checkpoints
-├── data/                     # Image and target PNGs
-│   └── thinning/
-│       ├── inputs/           # Noisy thick road input images
-│       └── targets/          # Ground truth 1px skeletons
-├── models/                   # UNet and node metrics implementation
-├── predictions/              # Sample outputs during training
-├── results/                  # Visuals + metrics from evaluations and ablation
-├── scripts/                  # All Python scripts
+├── cache/                        # Cached or temporary data
+├── checkpoints/                  # Trained model checkpoint files (.pt)
+├── data/                         # Original image data (optional, legacy)
+├── thinning_data/                # Main dataset location
+│   ├── inputs/                   # Thick road input images (PNG)
+│   └── targets/                  # Ground truth 1px-wide skeletons
+├── models/                       # UNet architecture and node metric utils
+│   ├── unet.py
+│   └── node_metrics.py
+├── predictions/                  # (Optional) saved outputs from test runs
+├── results/                      # All evaluation outputs (images + CSVs)
+│   ├── baseline_YYYYMMDD_HHMMSS/      # From baseline config
+│   ├── alt_loss_YYYYMMDD_HHMMSS/      # From alt_loss config
+│   ├── low_lr_YYYYMMDD_HHMMSS/        # From low_lr config
+│   └── sample_YYYYMMDD_HHMMSS/        # From manual evaluation scripts
+├── scripts/                      # All training/evaluation scripts
 │   ├── dataset.py
 │   ├── train.py
-│   ├── train_eval_ablation.py
-│   ├── evaluate_sample.py
-│   └── evaluate_debug_valence.py
+│   ├── train_eval_ablation.py         # Runs all configs & saves checkpoints
+│   ├── evaluate_sample.py             # Manual inspection of a single prediction
+│   ├── evaluate_debug_valence.py      # Visual/debug view of valence structures
+│   └── compare_all_outputs_with_target.py  # Side-by-side visual + metrics
 ├── requirements.txt
 └── README.md
 ```
