@@ -1,122 +1,92 @@
-# 🚗 Deep Learning-Based Road Skeletonization
+# 🚗 Road Skeletonization with U-Net
 
-This project builds a deep learning pipeline to **predict thin road skeletons** from noisy OpenStreetMap (OSM) images using a **U-Net** model.
-
-It covers **data generation**, **model training**, and **sample prediction visualization**.
+This project implements a deep learning-based approach to skeletonize road networks from noisy, thick raster images using OpenStreetMap (OSM) data. It includes data generation, training with a U-Net model, evaluation (both visual and quantitative), and an ablation study framework.
 
 ---
 
-## ⏩ Quickstart
+## 📁 Directory Structure
+
+```
+CSE627_FINAL/
+├── cache/                    # Cached OSM data
+├── checkpoints/              # Saved model checkpoints
+├── data/                     # Image and target PNGs
+│   └── thinning/
+│       ├── inputs/           # Noisy thick road input images
+│       └── targets/          # Ground truth 1px skeletons
+├── models/                   # UNet and node metrics implementation
+├── predictions/              # Sample outputs during training
+├── results/                  # Visuals + metrics from evaluations and ablation
+├── scripts/                  # All Python scripts
+│   ├── dataset.py
+│   ├── train.py
+│   ├── train_eval_ablation.py
+│   ├── evaluate_sample.py
+│   └── evaluate_debug_valence.py
+├── requirements.txt
+└── README.md
+```
+
+---
+
+## 🧩 Setup Instructions
+
+1. **Clone the repository**
+2. **Install dependencies**:
 
 ```bash
-# Clone the repository
-git clone https://github.com/Raynolbj/CSE627_Final.git
-cd <your-repo-folder>
-
-# Install dependencies
 pip install -r requirements.txt
-
-# Generate dataset
-python thinning_data/trace/models/thinning/make_data.py
-
-# Train the model
-python train.py
 ```
 
----
+3. **Generate dataset**:
 
-## 🛠 Project Setup
-
-### 1. Install Dependencies
-
-After cloning the repo, install all required Python packages:
+Run the data generation script (inside `thinning_data/trace/models/thinning/`) to populate `data/thinning/inputs` and `data/thinning/targets`.
 
 ```bash
-pip install -r requirements.txt
+python make_data.py
 ```
 
-(If `requirements.txt` isn't available yet, you can create it by running:  
-`pip freeze > requirements.txt`.)
+4. **Train the model**:
 
----
-
-### 2. Data Generation
-
-Generate the training dataset from OpenStreetMap data:
-
+To train a U-Net model on the generated dataset:
 ```bash
-python thinning_data/trace/models/thinning/make_data.py
+python scripts/train.py
 ```
 
-This will:
-- Download OSM data for **Oxford, Ohio**
-- Rasterize roads into `256x256` grayscale images
-- Apply noise and distortions
-- Save:
-  - **Input images** to `data/thinning/inputs/`
-  - **Target skeletons** to `data/thinning/targets/`
-  - **GeoJSON metadata** to `data/thinning/geojson/`
+This saves sample predictions and checkpoints under `/checkpoints` and `/predictions`.
 
----
-
-### 3. Train the U-Net Model
-
-After generating the dataset, train the U-Net:
-
+5. **Run evaluation on trained model**:
 ```bash
-python train.py
+python scripts/evaluate_sample.py
 ```
 
-This will:
-- Train on all input/target pairs
-- Save model checkpoints (`.pt` files) in `checkpoints/`
-- Save sample visual predictions each epoch in `predictions/`
-
----
-
-## 📁 Directory Structure (After Data Generation)
-
-```
-data/
-└── thinning/
-    ├── inputs/
-    │   ├── image_00000.png
-    │   ├── image_00001.png
-    │   └── ...
-    ├── targets/
-    │   ├── target_00000.png
-    │   ├── target_00001.png
-    │   └── ...
-    └── geojson/
-        ├── target_00000.geojson
-        ├── target_00001.geojson
-        └── ...
-```
-
----
-
-## 🚨 Important Notes
-
-- **Inputs** are thick, noisy road renderings.
-- **Targets** are clean, 1-pixel-wide skeletonized masks.
-- **Inputs and targets are stored in separate folders** to prevent accidental confusion.
-- Model training uses **BCEWithLogitsLoss**.
-
----
-
-## 💬 Useful Commands
-
-- Regenerate dataset:
-
+6. **Run full ablation study (3 configs)**:
 ```bash
-python thinning_data/trace/models/thinning/make_data.py
+python scripts/train_eval_ablation.py
 ```
 
-- Start a clean training run:
+This will train 3 variants of U-Net (different loss/learning rate), output:
+- 3 qualitative prediction PNGs per run
+- Loss, MSE, and valence-based node metrics for each sample
 
-```bash
-python train.py
-```
+---
 
-(You may want to delete old `checkpoints/` and `predictions/` first if retraining.)
+## 📊 Output Summary
+
+Results are saved to `results/<config_name>_<timestamp>/` including:
+- `qualitative_*.png`: input, target, prediction comparison
+- `sample_X/loss.txt`
+- `sample_X/mse.txt`
+- `sample_X/node_metrics.csv`
+
+---
+
+## 📌 Notes
+
+- Predictions are binarized and cleaned before skeletonization.
+- Evaluation includes node-level precision/recall for 1–4 valent nodes.
+- The pipeline is modular, so you can rerun evaluation without retraining.
+
+---
+
 
