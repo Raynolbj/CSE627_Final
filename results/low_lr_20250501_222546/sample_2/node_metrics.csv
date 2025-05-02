@@ -1,0 +1,5 @@
+Valence,Precision,Recall,True Positives,False Positives,False Negatives
+1,0.0000,0.0000,0,2,7
+2,1.0000,0.0014,1,0,712
+3,0.0000,0.0000,0,0,5
+4,0.0000,0.0000,0,0,0

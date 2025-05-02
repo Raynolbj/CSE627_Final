@@ -1,4 +1,6 @@
+import sys
 import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -10,11 +12,8 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from models.node_metrics import compute_node_metrics
 import csv
-import os
 from datetime import datetime
 from skimage.morphology import skeletonize, opening, footprint_rectangle
-import sys
-sys.path.append("..")  # Adds project root to Python path
 from models.unet import UNet
 from scripts.dataset import RoadDataset
 

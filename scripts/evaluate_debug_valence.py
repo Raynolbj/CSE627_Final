@@ -1,9 +1,10 @@
+
+import sys
 import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import torch
 import matplotlib.pyplot as plt
 import numpy as np
-import sys
-sys.path.append("..")  # Adds project root to Python path
 from models.unet import UNet
 from scripts.dataset import RoadDataset
 from datetime import datetime

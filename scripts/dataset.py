@@ -1,9 +1,8 @@
 # dataset.py
 import sys
-sys.path.append("..")  # Adds project root to Python path
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from models.unet import UNet
-from scripts.dataset import RoadDataset
-import os   
 from torch.utils.data import Dataset
 from PIL import Image
 

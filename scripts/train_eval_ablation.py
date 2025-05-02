@@ -1,8 +1,8 @@
-# This is a master training and evaluation runner
-# It trains the model (with config), evaluates it visually + quantitatively, and logs everything
-# You can then use this same structure to run ablation study sweeps
+# train_eval_ablation.py
 
+import sys
 import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -16,18 +16,12 @@ import numpy as np
 import csv
 from datetime import datetime
 from PIL import Image
-from scripts.dataset import RoadDataset  # Assumes you modularized this earlier
+from dataset import RoadDataset
 from tqdm import tqdm
-import sys
-sys.path.append("..")  # Adds project root to Python path
-from models.unet import UNet
-from scripts.dataset import RoadDataset
 torch.manual_seed(42)
 
-# Device detection
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# === CONFIG ===
 def get_config(name):
     configs = {
         "baseline": {"lr": 1e-3, "loss": nn.BCEWithLogitsLoss(), "epochs": 10},
@@ -36,8 +30,6 @@ def get_config(name):
     }
     return configs[name]
 
-
-# === UTILS ===
 def save_sample_visual(inputs, targets, outputs, out_dir, index):
     os.makedirs(out_dir, exist_ok=True)
     fig, axes = plt.subplots(1, 3, figsize=(10, 4))
@@ -50,7 +42,6 @@ def save_sample_visual(inputs, targets, outputs, out_dir, index):
     plt.savefig(os.path.join(out_dir, f"qualitative_{index+1}.png"))
     plt.close()
 
-
 def clean_and_skeletonize(pred):
     pred = pred / pred.max()
     binary_pred = pred > 0.01
@@ -58,17 +49,19 @@ def clean_and_skeletonize(pred):
     binary_pred = closing(binary_pred, footprint)
     return skeletonize(binary_pred)
 
-
 def save_node_metrics(pred_skeleton, true_target, out_path):
     metrics = compute_node_metrics(pred_skeleton, true_target)
     with open(out_path, 'w', newline='') as f:
         writer = csv.writer(f)
         writer.writerow(["Valence", "Precision", "Recall", "True Positives", "False Positives", "False Negatives"])
         for v, stats in metrics.items():
-            writer.writerow([v, f"{stats['precision']:.4f}", f"{stats['recall']:.4f}", stats['tp'], stats['fp'], stats['fn']])
+            tp, fp, fn = stats['tp'], stats['fp'], stats['fn']
+            fp = max(0, fp)
+            fn = max(0, fn)
+            precision = tp / (tp + fp + 1e-6)
+            recall = tp / (tp + fn + 1e-6)
+            writer.writerow([v, f"{precision:.4f}", f"{recall:.4f}", tp, fp, fn])
 
-
-# === EVALUATION (uses fixed sample) ===
 def evaluate(model, dataloader, criterion, config_name, results_dir, fixed_batch):
     model.eval()
     os.makedirs(results_dir, exist_ok=True)
@@ -76,12 +69,11 @@ def evaluate(model, dataloader, criterion, config_name, results_dir, fixed_batch
         inputs, targets = fixed_batch
         inputs, targets = inputs.to(device), targets.to(device)
         outputs = model(inputs)
+        torch.save(outputs.cpu(), os.path.join(results_dir, "raw_outputs.pt"))  # Debugging
 
         for i in range(3):
-            # Save visual output
             save_sample_visual(inputs, targets, outputs, out_dir=results_dir, index=i)
 
-            # Save per-sample metrics
             sample_dir = os.path.join(results_dir, f"sample_{i+1}")
             os.makedirs(sample_dir, exist_ok=True)
 
@@ -98,9 +90,8 @@ def evaluate(model, dataloader, criterion, config_name, results_dir, fixed_batch
             pred_skeleton = clean_and_skeletonize(pred_np)
             save_node_metrics(pred_skeleton, true_np, os.path.join(sample_dir, "node_metrics.csv"))
 
-
-# === TRAINING ===
-def train_and_evaluate(config_name, fixed_batch):
+def train_and_evaluate(config_name):
+    print(f"\n==== Starting configuration: {config_name} ====")
     config = get_config(config_name)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     results_dir = f"results/{config_name}_{timestamp}"
@@ -117,7 +108,7 @@ def train_and_evaluate(config_name, fixed_batch):
         model.train()
         print(f"Training {config_name} - Epoch {epoch+1}/{config['epochs']}")
         running_loss = 0.0
-        for x, y in tqdm(dataloader, desc=f"Epoch {epoch+1}"):
+        for x, y in tqdm(dataloader, desc=f"Epoch {epoch+1} [{config_name}]"):
             x, y = x.to(device), y.to(device)
             pred = model(x)
             loss = criterion(pred, y)
@@ -127,18 +118,17 @@ def train_and_evaluate(config_name, fixed_batch):
             running_loss += loss.item()
 
         avg_loss = running_loss / len(dataloader)
-        print(f"Average Epoch {epoch+1} Loss: {avg_loss:.6f}")
+        print(f"[Config: {config_name}] Average Epoch {epoch+1} Loss: {avg_loss:.6f}")
 
-    # Evaluate after training using fixed batch
+    os.makedirs(results_dir, exist_ok=True)
+    torch.save(model.state_dict(), os.path.join(results_dir, "model.pth"))
+    
+    # Use fresh fixed batch here
+    fixed_loader = DataLoader(dataset, batch_size=8, shuffle=True)
+    fixed_batch = next(iter(fixed_loader))
+
     evaluate(model, dataloader, criterion, config_name, results_dir, fixed_batch)
 
-
-# === RUN CONFIGS ===
 if __name__ == "__main__":
-    transform = transforms.Compose([transforms.ToTensor()])
-    common_dataset = RoadDataset("data/thinning/inputs", "data/thinning/targets", transform)
-    common_loader = DataLoader(common_dataset, batch_size=8, shuffle=False)
-    fixed_batch = next(iter(common_loader))  # use same batch for all evaluations
-
     for config in ["baseline", "alt_loss", "low_lr"]:
-        train_and_evaluate(config, fixed_batch)
+        train_and_evaluate(config)
